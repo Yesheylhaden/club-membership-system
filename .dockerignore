@@ -1,0 +1,9 @@
+.git
+.env
+.DS_Store
+screenshots/
+postman/
+club-service
+membership-service
+api-gateway
+bin/

@@ -1,0 +1,87 @@
+services:
+  club-db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: ${CLUB_DB_NAME}
+      POSTGRES_USER: ${CLUB_DB_USER}
+      POSTGRES_PASSWORD: ${CLUB_DB_PASSWORD}
+    volumes:
+      - club-data:/var/lib/postgresql/data
+      - ./database/club/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - pg_isready -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  membership-db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: ${MEMBERSHIP_DB_NAME}
+      POSTGRES_USER: ${MEMBERSHIP_DB_USER}
+      POSTGRES_PASSWORD: ${MEMBERSHIP_DB_PASSWORD}
+    volumes:
+      - membership-data:/var/lib/postgresql/data
+      - ./database/membership/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - pg_isready -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  club-service:
+    build:
+      context: .
+      dockerfile: cmd/club-service/Dockerfile
+    environment:
+      DATABASE_URL: "postgres://${CLUB_DB_USER}:${CLUB_DB_PASSWORD}@club-db:5432/${CLUB_DB_NAME}?sslmode=disable"
+      GRPC_ADDRESS: ${CLUB_GRPC_ADDRESS}
+      DB_STARTUP_TIMEOUT: ${DB_STARTUP_TIMEOUT}
+    depends_on:
+      club-db:
+        condition: service_healthy
+
+  membership-service:
+    build:
+      context: .
+      dockerfile: cmd/membership-service/Dockerfile
+    environment:
+      DATABASE_URL: "postgres://${MEMBERSHIP_DB_USER}:${MEMBERSHIP_DB_PASSWORD}@membership-db:5432/${MEMBERSHIP_DB_NAME}?sslmode=disable"
+      GRPC_ADDRESS: ${MEMBERSHIP_GRPC_ADDRESS}
+      DB_STARTUP_TIMEOUT: ${DB_STARTUP_TIMEOUT}
+      CLUB_SERVICE_ADDRESS: ${CLUB_SERVICE_ADDRESS}
+      CLUB_CALL_TIMEOUT: ${CLUB_CALL_TIMEOUT}
+      CLUB_MAX_ATTEMPTS: ${CLUB_MAX_ATTEMPTS}
+      CLUB_RETRY_BACKOFF: ${CLUB_RETRY_BACKOFF}
+      CLUB_CIRCUIT_THRESHOLD: ${CLUB_CIRCUIT_THRESHOLD}
+      CLUB_CIRCUIT_OPEN_DURATION: ${CLUB_CIRCUIT_OPEN_DURATION}
+    depends_on:
+      membership-db:
+        condition: service_healthy
+      club-service:
+        condition: service_started
+
+  api-gateway:
+    build:
+      context: .
+      dockerfile: cmd/api-gateway/Dockerfile
+    ports:
+      - "${GATEWAY_HOST_PORT}:${GATEWAY_CONTAINER_PORT}"
+    environment:
+      HTTP_ADDRESS: ${GATEWAY_HTTP_ADDRESS}
+      CLUB_SERVICE_ADDRESS: ${CLUB_SERVICE_ADDRESS}
+      MEMBERSHIP_SERVICE_ADDRESS: ${MEMBERSHIP_SERVICE_ADDRESS}
+      GATEWAY_REQUEST_TIMEOUT: ${GATEWAY_REQUEST_TIMEOUT}
+    depends_on:
+      club-service:
+        condition: service_started
+      membership-service:
+        condition: service_started
+
+volumes:
+  club-data:
+  membership-data:

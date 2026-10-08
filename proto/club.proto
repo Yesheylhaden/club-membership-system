@@ -1,0 +1,48 @@
+syntax = "proto3";
+
+package club;
+
+option go_package = "club-membership-system/proto;pb";
+
+service ClubService {
+  rpc CreateClub(CreateClubRequest) returns (Club);
+  rpc GetClub(GetClubRequest) returns (Club);
+  rpc ListClubs(ListClubsRequest) returns (ListClubsResponse);
+  rpc UpdateClub(UpdateClubRequest) returns (Club);
+  rpc DeleteClub(DeleteClubRequest) returns (DeleteClubResponse);
+}
+
+message Club {
+  int64 id = 1;
+  string name = 2;
+  string description = 3;
+}
+
+message CreateClubRequest {
+  string name = 1;
+  string description = 2;
+}
+
+message GetClubRequest {
+  int64 id = 1;
+}
+
+message ListClubsRequest {}
+
+message ListClubsResponse {
+  repeated Club clubs = 1;
+}
+
+message UpdateClubRequest {
+  int64 id = 1;
+  string name = 2;
+  string description = 3;
+}
+
+message DeleteClubRequest {
+  int64 id = 1;
+}
+
+message DeleteClubResponse {
+  string message = 1;
+}
